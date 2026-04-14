@@ -19,6 +19,9 @@ def add_username_argument(parser):
 
 def add_domain_argument(parser):
     parser.add_argument('-d', '--domain', default='shanoir.irisa.fr', help='The shanoir domain to query.')
+    
+def add_service_argument(parser):
+    parser.add_argument('-s', '--service', required=True, help='The service to query (studies or datasets).')
 
 def add_common_arguments(parser):
     add_username_argument(parser)
@@ -34,39 +37,33 @@ def add_configuration_arguments(parser):
     return parser
 
 def add_deletion_arguments(parser):
-    parser.add_argument('-eids', '--examination_ids', default='', help='Path to a file containing the examination ids to delete (a .txt file containing one examination id per line).')
+    parser.add_argument('-sids', '--subject_ids', default='', help='Path to a file containing the subject ids to delete (a .txt file containing one subject id per line).')
     return parser
 
 if __name__ == '__main__':
     parser = create_arg_parser()
     add_common_arguments(parser)
+    add_service_argument(parser)
     add_deletion_arguments(parser)
     add_configuration_arguments(parser)
     args = parser.parse_args()
     config = shanoir_util.initialize(args)
 
-    SHANOIR_SHUTDOWN_HOUR = 2
-    SHANOIR_AVAILABLE_HOUR = 5
+    # Get subject Ids file
+    subject_ids = Path(args.subject_ids) if args.subject_ids else None
+    if args.subject_ids and not subject_ids.exists():
+        sys.exit('Error: given file does not exist: ' + str(subject_ids))
 
-    # Get examination Ids file
-    examination_ids = Path(args.examination_ids) if args.examination_ids else None
-    if args.examination_ids and not examination_ids.exists():
-        sys.exit('Error: given file does not exist: ' + str(examination_ids))
+    if subject_ids:
+        with open(subject_ids) as file:
+            subject_id_list = [subject_id.strip() for subject_id in file]
 
-    if examination_ids:
-        with open(examination_ids) as file:
-            examination_id_list = [examination_id.strip() for examination_id in file]
-
-            for examination_id in examination_id_list: 
-                now = datetime.now()
-                if now.hour >= SHANOIR_SHUTDOWN_HOUR and now.hour < SHANOIR_AVAILABLE_HOUR:
-                    future = datetime(now.year, now.month, now.day, SHANOIR_AVAILABLE_HOUR, 0)
-                    time.sleep((future-now).total_seconds())
-                result = shanoir_util.deleteExamination(config, examination_id)
+            for subject_id in subject_id_list: 
+                result = shanoir_util.deleteSubject(config, subject_id)
                 if result == 204:
-                    logging.info("Examination " + examination_id + " deleted with success.")
+                    logging.error("Subject " + subject_id + " deleted with success.")
                 else:
-                    logging.error("Examination " + examination_id + ": Error during deletion " + str(result))
+                    logging.error("Subject " + subject_id + ": Error during deletion " + str(result))
                 time.sleep(1)
 
-#python3 ./delete_exams.py -lf /tmp/test.log -u XXXX -d shanoir-ng-nginx -eids ./exams.txt
+#python3 ./delete_subject.py -lf /tmp/test.log -u XXXX -d shanoir-ng-nginx -s datasets -sids ./subjects.txt
