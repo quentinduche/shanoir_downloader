@@ -186,6 +186,8 @@ def get_filename_from_response(output_folder, response):
 	if response.headers and 'Content-Disposition' in response.headers:
 		filenames = re.findall('filename=(.+)', response.headers['Content-Disposition'])
 		filename = str(output_folder / filenames[0]) if len(filenames) > 0 else None
+		# Little fix to remove quotes from the filename if they are present (they are sometimes present in the response header)
+		filename = filename.replace('"', '') if filename is not None else None 
 	if filename is None:
 		raise Exception('Could not find file name in response header', response.status_code, response.reason, response.error, response.headers, response)
 	return filename.replace("\"", "")
